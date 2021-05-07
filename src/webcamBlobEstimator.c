@@ -205,6 +205,8 @@ static int createHistograms(
 	double dAvgY = 0;
 	double dStdDevX = 0;
 	double dStdDevY = 0;
+	double dHistAbsX = 0;
+	double dHistAbsY = 0;
 	{
 		double dMin = lpNewHistX->dValues[0];
 		double dMax = lpNewHistX->dValues[0];
@@ -214,6 +216,7 @@ static int createHistograms(
 			dAvgX = dAvgX + lpNewHistX->dValues[i];
 		}
 		dAvgX = dAvgX / ((double)lpNewHistX->sLen);
+		dHistAbsX = dMax;
 
 /*		double dRange = (dMax - dMin);
 
@@ -230,6 +233,7 @@ static int createHistograms(
 			dAvgY = dAvgY + lpNewHistY->dValues[i];
 		}
 		dAvgY = dAvgY / ((double)lpNewHistY->sLen);
+		dHistAbsY = dMax;
 
 /*		double dRange = (dMax - dMin);
 
@@ -253,9 +257,18 @@ static int createHistograms(
 		Calculate width of peaks
 
 		The seed is given by the local max.
+
 		The width is determined by associating every pixel with the peak that's above
 		average (?), expanding from the seed ...
+
+		this yields a candidate cluster
+
+		Then we will determine the maximum pixel value (or one of the max) in
+		the candidate cluster and trace all pixels from there on in an iterative
+		fashion
 	*/
+	double dThreasholdX = dHistAbsX * 0.2;
+	double dThreasholdY = dHistAbsY * 0.2;
 	{
 		unsigned long int peakXMin = absPeakX;
 		unsigned long int peakXMax = absPeakX;
@@ -263,30 +276,141 @@ static int createHistograms(
 		unsigned long int peakYMax = absPeakY;
 		unsigned long int x,y;
 
-		double dPeakSumX = 0;
-		double dPeakSumY = 0;
 		double dAreaSum = 0;
 
-		while((peakXMin > 0) && ((double)lpNewHistX->dValues[peakXMin-1] > (dAvgX+dStdDevX))) { peakXMin = peakXMin - 1; }
-		while((peakXMax < (lpNewHistX->sLen-1)) && ((double)lpNewHistX->dValues[peakXMax+1] > (dAvgX+dStdDevX))) { peakXMax = peakXMax + 1; }
+		while((peakXMin > 0) && ((double)lpNewHistX->dValues[peakXMin-1] > (dThreasholdX))) { peakXMin = peakXMin - 1; }
+		while((peakXMax < (lpNewHistX->sLen-1)) && ((double)lpNewHistX->dValues[peakXMax+1] > (dThreasholdX))) { peakXMax = peakXMax + 1; }
 
-		while((peakYMin > 0) && ((double)lpNewHistY->dValues[peakYMin-1] > (dAvgY+dStdDevY))) { peakYMin = peakYMin - 1; }
-		while((peakYMax < (lpNewHistY->sLen-1)) && ((double)lpNewHistY->dValues[peakYMax+1] > (dAvgY+dStdDevY))) { peakYMax = peakYMax + 1; }
+		while((peakYMin > 0) && ((double)lpNewHistY->dValues[peakYMin-1] > (dThreasholdY))) { peakYMin = peakYMin - 1; }
+		while((peakYMax < (lpNewHistY->sLen-1)) && ((double)lpNewHistY->dValues[peakYMax+1] > (dThreasholdY))) { peakYMax = peakYMax + 1; }
 
-		for(i = peakXMin; i <= peakXMax; i=i+1) {
+		/* located candidate ... now locate absolute maximum */
+		double dMaxPixelValueInCluster = 0;
+		unsigned long int seedX, seedY;
+		for(x = peakXMin; x <= peakXMax; x=x+1) {
+			for(y = peakYMin; y <= peakYMax; y=y+1) {
+				if(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents] > dMaxPixelValueInCluster) {
+					dMaxPixelValueInCluster = lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents];
+					seedX = x;
+					seedY = y;
+				}
+			}
+		}
+
+		/* Now trace the cluster from seeds on ... */
+		int done = 0;
+
+		double peakXMinReal = absPeakX;
+		double peakYMinReal = absPeakY;
+		double peakXMaxReal = absPeakX;
+		double peakYMaxReal = absPeakY;
+		unsigned long int clusterPixelArea = 1;
+
+		for(x = peakXMin; x <= peakXMax; x=x+1) {
+			for(y = peakYMin; y <= peakYMax; y=y+1) {
+				lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+2] = 0; /* We use the blue channel ... */
+			}
+		}
+		lpImage->lpData[(seedX + seedY * lpImage->width)*lpImage->numComponents+2] = 255; /* We use the blue channel ... */
+		while(done == 0) {
+			done = 1;
+			for(x = peakXMin; x <= peakXMax; x=x+1) {
+				for(y = peakYMin; y <= peakYMax; y=y+1) {
+					/*
+						If we have found a blue pixel we will look at it's neighbors
+						any neighbor with a value over threashold will be added to
+						the cluster
+					*/
+					signed long int dx,dy;
+					if(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+2] == 255) {
+						for(dx = -10; dx <= 10; dx=dx+1) {
+							for(dy = -10; dy <= 10; dy=dy+1) {
+								signed long int curX = (signed long int)x + dx;
+								signed long int curY = (signed long int)y + dy;
+
+								if((lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+2] != 255)) {
+									lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+2] = 255;
+									if(peakXMinReal > curX) { peakXMinReal = curX; }
+									if(peakXMaxReal < curX) { peakXMaxReal = curX; }
+
+									if(peakYMinReal > curY) { peakYMinReal = curY; }
+									if(peakYMaxReal < curY) { peakYMaxReal = curY; }
+
+									clusterPixelArea = clusterPixelArea + 1;
+lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+0] = 0;
+lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+1] = 0;
+									done = 0;
+								}
+							}
+						}
+					}
+/*
+					if(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+2] == 255) {
+						if((lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+2] != 255)) {
+							lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+2] = 255;
+							if(peakXMinReal > x-1) { peakXMinReal = x-1; }
+							if(peakXMaxReal < x-1) { peakXMaxReal = x-1; }
+							clusterPixelArea = clusterPixelArea + 1;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
+							done = 0;
+						}
+						if((lpImage->lpData[((x+1) + y * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[((x+1) + y * lpImage->width)*lpImage->numComponents+2] != 255)) {
+							lpImage->lpData[((x+1) + y * lpImage->width)*lpImage->numComponents+2] = 255;
+							if(peakXMinReal > x+1) { peakXMinReal = x+1; }
+							if(peakXMaxReal < x+1) { peakXMaxReal = x+1; }
+							clusterPixelArea = clusterPixelArea + 1;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
+							done = 0;
+						}
+
+						if((lpImage->lpData[(x + (y-1) * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[(x + (y-1) * lpImage->width)*lpImage->numComponents+2] != 255)) {
+							lpImage->lpData[(x + (y-1) * lpImage->width)*lpImage->numComponents+2] = 255;
+							if(peakYMinReal > y-1) { peakYMinReal = y-1; }
+							if(peakYMaxReal < y-1) { peakYMaxReal = y-1; }
+							clusterPixelArea = clusterPixelArea + 1;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
+							done = 0;
+						}
+						if((lpImage->lpData[(x + (y+1) * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[(x + (y+1) * lpImage->width)*lpImage->numComponents+2] != 255)) {
+							lpImage->lpData[(x + (y+1) * lpImage->width)*lpImage->numComponents+2] = 255;
+							if(peakYMinReal > y+1) { peakYMinReal = y+1; }
+							if(peakYMaxReal < y+1) { peakYMaxReal = y+1; }
+							clusterPixelArea = clusterPixelArea + 1;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
+lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
+							done = 0;
+						}
+					}
+*/
+				}
+			}
+		}
+
+		/* Calculate new boundaries ... */
+		peakXMin = peakXMinReal;
+		peakXMax = peakXMaxReal;
+		peakYMin = peakYMinReal;
+		peakYMax = peakYMaxReal;
+
+/*		for(i = peakXMin; i <= peakXMax; i=i+1) {
 			dPeakSumX = dPeakSumX + ((double)lpNewHistX->dValues[i]);
 		}
 		for(i = peakYMin; i <= peakYMax; i=i+1) {
 			dPeakSumY = dPeakSumY + ((double)lpNewHistY->dValues[i]);
-		}
+		} */
 
 		for(x = peakXMin; x <= peakXMax; x=x+1) {
 			for(y = peakYMin; y <= peakYMax; y=y+1) {
-				dAreaSum = dAreaSum + ((double)lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents]); /* Summing in second component to avoid any annotations that are done in first ... */
+				if(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+2] == 255) {
+					dAreaSum = dAreaSum + ((double)lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents]); /* Summing in second component to avoid any annotations that are done in first ... */
+				}
 			}
 		}
 
-		printf("# Estimated peak\n#\tx: %lu %lu\n#\ty : %lu %lu\n#\tWidths: %lu %lu\n#\tSums: %lf %lf\n#\tArea sum: %lf\n%lu %lu %lu %lu %lu %lu %lf %lf %lf\n", peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dPeakSumX, dPeakSumY, dAreaSum, peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dPeakSumX, dPeakSumY, dAreaSum);
+		printf("# Estimated peak\n#\tx: %lu %lu\n#\ty : %lu %lu\n#\tWidths: %lu %lu\n#\tArea sum: %lf\n#\tCluster pixel area: %lu\n%lu %lu %lu %lu %lu %lu %lf %lu\n", peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dAreaSum, clusterPixelArea, peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dAreaSum, clusterPixelArea);
 
 		/*
 			Plot estimated peak location into image (2 pixel wide red if possible)...
@@ -808,16 +932,20 @@ int main(int argc, char* argv[]) {
 				}
 
 	        	char* lpFilename = NULL;
+				char* lpFilename2 = NULL;
 	        	if(asprintf(&lpFilename, "%s-raw.jpg", argv[2]) < 0) {
 					printf("%s:%u Out of memory, skipping frame\n", __FILE__, __LINE__);
 	        	} else {
+					asprintf(&lpFilename2, "%s-cluster.jpg", argv[2]);
 					#ifdef DEBUG
 	  					printf("%s:%u Writing %s\n", __FILE__, __LINE__, lpFilename);
 					#endif
 					greyscale(lpRawImg);
+					storeJpegImageFile(lpRawImg, lpFilename);
 					createHistograms(lpRawImg, argv[2], NULL, NULL, NULL);
-		  			storeJpegImageFile(lpRawImg, lpFilename);
+		  			storeJpegImageFile(lpRawImg, lpFilename2);
 	          		free(lpFilename);
+					free(lpFilename2);
 				}
 
 				free(lpRawImg->lpData);
