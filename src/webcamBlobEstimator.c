@@ -18,6 +18,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <math.h>
+
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/event.h>
@@ -201,6 +203,8 @@ static int createHistograms(
 	unsigned long int absPeakY = 0;
 	double dAvgX = 0;
 	double dAvgY = 0;
+	double dStdDevX = 0;
+	double dStdDevY = 0;
 	{
 		double dMin = lpNewHistX->dValues[0];
 		double dMax = lpNewHistX->dValues[0];
@@ -233,47 +237,17 @@ static int createHistograms(
 			lpNewHistY->dValues[i] = (lpNewHistY->dValues[i] - dMin) / (dRange);
 		} */
 	}
-
-/*	{
-		char* lpFilename = NULL;
-		if(asprintf(&lpFilename, "%s-histnormx.dat", lpFilenamePrefix) < 0) {
-			free(lpNewHistX);
-			free(lpNewHistY);
-			return 1;
-		}
-		FILE* fHandle = fopen(lpFilename, "w");
-		if(fHandle == NULL) {
-			free(lpFilename);
-			free(lpNewHistX);
-			free(lpNewHistY);
-			return 1;
-		}
-		for(i = 0; i < lpNewHistX->sLen; i=i+1) {
-			fprintf(fHandle, "%lu\t%lf\n", i, lpNewHistX->dValues[i]);
-		}
-		fclose(fHandle);
-		free(lpFilename);
-	}
 	{
-		char* lpFilename = NULL;
-		if(asprintf(&lpFilename, "%s-histnormy.dat", lpFilenamePrefix) < 0) {
-			free(lpNewHistX);
-			free(lpNewHistY);
-			return 1;
+		for(i = 0; i < lpNewHistX->sLen; i=i+1) {
+			dStdDevX = dStdDevX + (lpNewHistX->dValues[i] - dAvgX)*(lpNewHistX->dValues[i] - dAvgX);
 		}
-		FILE* fHandle = fopen(lpFilename, "w");
-		if(fHandle == NULL) {
-			free(lpFilename);
-			free(lpNewHistX);
-			free(lpNewHistY);
-			return 1;
-		}
+		dStdDevX = sqrt(dStdDevX / ((double)lpNewHistX->sLen));
+
 		for(i = 0; i < lpNewHistY->sLen; i=i+1) {
-			fprintf(fHandle, "%lu\t%lf\n", i, lpNewHistY->dValues[i]);
+			dStdDevY = dStdDevY + (lpNewHistY->dValues[i] - dAvgY)*(lpNewHistY->dValues[i] - dAvgY);
 		}
-		fclose(fHandle);
-		free(lpFilename);
-	} */
+		dStdDevY = sqrt(dStdDevY / ((double)lpNewHistY->sLen));
+	}
 
 	/*
 		Calculate width of peaks
@@ -287,15 +261,17 @@ static int createHistograms(
 		unsigned long int peakXMax = absPeakX;
 		unsigned long int peakYMin = absPeakY;
 		unsigned long int peakYMax = absPeakY;
+		unsigned long int x,y;
 
 		double dPeakSumX = 0;
 		double dPeakSumY = 0;
+		double dAreaSum = 0;
 
-		while((peakXMin > 0) && ((double)lpNewHistX->dValues[peakXMin-1] > dAvgX)) { peakXMin = peakXMin - 1; }
-		while((peakXMax < (lpNewHistX->sLen-1)) && ((double)lpNewHistX->dValues[peakXMax+1] > dAvgX)) { peakXMax = peakXMax + 1; }
+		while((peakXMin > 0) && ((double)lpNewHistX->dValues[peakXMin-1] > (dAvgX+dStdDevX))) { peakXMin = peakXMin - 1; }
+		while((peakXMax < (lpNewHistX->sLen-1)) && ((double)lpNewHistX->dValues[peakXMax+1] > (dAvgX+dStdDevX))) { peakXMax = peakXMax + 1; }
 
-		while((peakYMin > 0) && ((double)lpNewHistY->dValues[peakYMin-1] > dAvgY)) { peakYMin = peakYMin - 1; }
-		while((peakYMax < (lpNewHistY->sLen-1)) && ((double)lpNewHistY->dValues[peakYMax+1] > dAvgY)) { peakYMax = peakYMax + 1; }
+		while((peakYMin > 0) && ((double)lpNewHistY->dValues[peakYMin-1] > (dAvgY+dStdDevY))) { peakYMin = peakYMin - 1; }
+		while((peakYMax < (lpNewHistY->sLen-1)) && ((double)lpNewHistY->dValues[peakYMax+1] > (dAvgY+dStdDevY))) { peakYMax = peakYMax + 1; }
 
 		for(i = peakXMin; i <= peakXMax; i=i+1) {
 			dPeakSumX = dPeakSumX + ((double)lpNewHistX->dValues[i]);
