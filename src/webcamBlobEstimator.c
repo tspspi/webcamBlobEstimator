@@ -217,12 +217,6 @@ static int createHistograms(
 		}
 		dAvgX = dAvgX / ((double)lpNewHistX->sLen);
 		dHistAbsX = dMax;
-
-/*		double dRange = (dMax - dMin);
-
-		for(i = 0; i < lpNewHistX->sLen; i=i+1) {
-			lpNewHistX->dValues[i] = (lpNewHistX->dValues[i] - dMin) / (dRange);
-		} */
 	}
 	{
 		double dMin = lpNewHistY->dValues[0];
@@ -234,12 +228,6 @@ static int createHistograms(
 		}
 		dAvgY = dAvgY / ((double)lpNewHistY->sLen);
 		dHistAbsY = dMax;
-
-/*		double dRange = (dMax - dMin);
-
-		for(i = 0; i < lpNewHistY->sLen; i=i+1) {
-			lpNewHistY->dValues[i] = (lpNewHistY->dValues[i] - dMin) / (dRange);
-		} */
 	}
 	{
 		for(i = 0; i < lpNewHistX->sLen; i=i+1) {
@@ -344,47 +332,6 @@ lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+1] = 0;
 							}
 						}
 					}
-/*
-					if(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+2] == 255) {
-						if((lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+2] != 255)) {
-							lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+2] = 255;
-							if(peakXMinReal > x-1) { peakXMinReal = x-1; }
-							if(peakXMaxReal < x-1) { peakXMaxReal = x-1; }
-							clusterPixelArea = clusterPixelArea + 1;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
-							done = 0;
-						}
-						if((lpImage->lpData[((x+1) + y * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[((x+1) + y * lpImage->width)*lpImage->numComponents+2] != 255)) {
-							lpImage->lpData[((x+1) + y * lpImage->width)*lpImage->numComponents+2] = 255;
-							if(peakXMinReal > x+1) { peakXMinReal = x+1; }
-							if(peakXMaxReal < x+1) { peakXMaxReal = x+1; }
-							clusterPixelArea = clusterPixelArea + 1;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
-							done = 0;
-						}
-
-						if((lpImage->lpData[(x + (y-1) * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[(x + (y-1) * lpImage->width)*lpImage->numComponents+2] != 255)) {
-							lpImage->lpData[(x + (y-1) * lpImage->width)*lpImage->numComponents+2] = 255;
-							if(peakYMinReal > y-1) { peakYMinReal = y-1; }
-							if(peakYMaxReal < y-1) { peakYMaxReal = y-1; }
-							clusterPixelArea = clusterPixelArea + 1;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
-							done = 0;
-						}
-						if((lpImage->lpData[(x + (y+1) * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[(x + (y+1) * lpImage->width)*lpImage->numComponents+2] != 255)) {
-							lpImage->lpData[(x + (y+1) * lpImage->width)*lpImage->numComponents+2] = 255;
-							if(peakYMinReal > y+1) { peakYMinReal = y+1; }
-							if(peakYMaxReal < y+1) { peakYMaxReal = y+1; }
-							clusterPixelArea = clusterPixelArea + 1;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+0] = 0;
-lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
-							done = 0;
-						}
-					}
-*/
 				}
 			}
 		}
@@ -394,13 +341,6 @@ lpImage->lpData[((x-1) + y * lpImage->width)*lpImage->numComponents+1] = 0;
 		peakXMax = peakXMaxReal;
 		peakYMin = peakYMinReal;
 		peakYMax = peakYMaxReal;
-
-/*		for(i = peakXMin; i <= peakXMax; i=i+1) {
-			dPeakSumX = dPeakSumX + ((double)lpNewHistX->dValues[i]);
-		}
-		for(i = peakYMin; i <= peakYMax; i=i+1) {
-			dPeakSumY = dPeakSumY + ((double)lpNewHistY->dValues[i]);
-		} */
 
 		for(x = peakXMin; x <= peakXMax; x=x+1) {
 			for(y = peakYMin; y <= peakYMax; y=y+1) {
