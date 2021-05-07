@@ -280,7 +280,13 @@ static int createHistograms(
 			dPeakSumY = dPeakSumY + ((double)lpNewHistY->dValues[i]);
 		}
 
-		printf("# Estimated peak\n#\tx: %lu %lu\n#\ty : %lu %lu\n#\tWidths: %lu %lu\n#\tSums: %lf %lf\n%lu %lu %lu %lu %lu %lu %lf %lf\n", peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dPeakSumX, dPeakSumY, peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dPeakSumX, dPeakSumY);
+		for(x = peakXMin; x <= peakXMax; x=x+1) {
+			for(y = peakYMin; y <= peakYMax; y=y+1) {
+				dAreaSum = dAreaSum + ((double)lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents]); /* Summing in second component to avoid any annotations that are done in first ... */
+			}
+		}
+
+		printf("# Estimated peak\n#\tx: %lu %lu\n#\ty : %lu %lu\n#\tWidths: %lu %lu\n#\tSums: %lf %lf\n#\tArea sum: %lf\n%lu %lu %lu %lu %lu %lu %lf %lf %lf\n", peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dPeakSumX, dPeakSumY, dAreaSum, peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dPeakSumX, dPeakSumY, dAreaSum);
 
 		/*
 			Plot estimated peak location into image (2 pixel wide red if possible)...
