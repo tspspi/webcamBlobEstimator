@@ -502,7 +502,9 @@ int main(int argc, char* argv[]) {
 			printf("\tAspect ratio: %u : %u\n", cropcap.pixelaspect.numerator, cropcap.pixelaspect.denominator);
 		#endif
 
-		printf("Setting default cropping rectangle ... ");
+		#ifdef DEBUG
+			printf("Setting default cropping rectangle ... ");
+		#endif
 
 		struct v4l2_crop crop;
 
@@ -510,9 +512,13 @@ int main(int argc, char* argv[]) {
 		crop.c = cropcap.defrect;
 
 		if(xioctl(hHandle, VIDIOC_S_CROP, &crop) == -1) {
-			printf("failed\n");
+			#ifdef DEBUG
+				printf("failed\n");
+			#endif
 		} else {
-			printf("ok\n");
+			#ifdef DEBUG
+				printf("ok\n");
+			#endif
 		}
 
 		break;
@@ -523,7 +529,9 @@ int main(int argc, char* argv[]) {
 		YUYV later on anyways)
 	*/
 	{
-		printf("Doing format negotiation\n");
+		#ifdef DEBUG
+			printf("Doing format negotiation\n");
+		#endif
 
 		int idx = 0;
 		for(idx = 0;; idx = idx + 1) {
@@ -533,11 +541,15 @@ int main(int argc, char* argv[]) {
 			fmt.index = idx;
 
 			if(xioctl(hHandle, VIDIOC_ENUM_FMT, &fmt) == -1) {
-				printf("Done enumeration after %u formats\n", idx);
+				#ifdef DEBUG
+					printf("Done enumeration after %u formats\n", idx);
+				#endif
 				break;
 			}
 
-			printf("\tFormat %u with code %08x (compressed: %s): %s\n", idx, fmt.pixelformat, ((fmt.flags & V4L2_FMT_FLAG_COMPRESSED) != 0) ? "yes" : "no", fmt.description);
+			#ifdef DEBUG
+				printf("\tFormat %u with code %08x (compressed: %s): %s\n", idx, fmt.pixelformat, ((fmt.flags & V4L2_FMT_FLAG_COMPRESSED) != 0) ? "yes" : "no", fmt.description);
+			#endif
 		}
 	}
 
@@ -556,7 +568,9 @@ int main(int argc, char* argv[]) {
 		fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
 
 		if(xioctl(hHandle, VIDIOC_S_FMT, &fmt) == -1) {
-			printf("%s:%u Format negotiation (S_FMT) failed!\n", __FILE__, __LINE__);
+			#ifdef DEBUG
+				printf("%s:%u Format negotiation (S_FMT) failed!\n", __FILE__, __LINE__);
+			#endif
 		}
 
 		/* Now one should query the real size ... */
@@ -564,7 +578,9 @@ int main(int argc, char* argv[]) {
 		defaultHeight = fmt.fmt.pix.height;
 	}
 
-	printf("Negotiated width and height: %d x %d\n", defaultWidth, defaultHeight);
+	#ifdef DEBUG
+		printf("Negotiated width and height: %d x %d\n", defaultWidth, defaultHeight);
+	#endif
 
 	/*
 		Setup buffers
@@ -583,14 +599,18 @@ int main(int argc, char* argv[]) {
 		rqBuffers.memory = V4L2_MEMORY_MMAP;
 
 		if(xioctl(hHandle, VIDIOC_REQBUFS, &rqBuffers) == -1) {
-			printf("%s:%u Requesting buffers failed!\n", __FILE__, __LINE__);
+			#ifdef DEBUG
+				printf("%s:%u Requesting buffers failed!\n", __FILE__, __LINE__);
+			#endif
 			deviceClose(hHandle);
 			return 2;
 		}
 
 		bufferCount = rqBuffers.count;
 	}
-	printf("Requested %d buffers\n", bufferCount);
+	#ifdef DEBUG
+		printf("Requested %d buffers\n", bufferCount);
+	#endif
 
 	/*
 		Map buffers
@@ -707,9 +727,11 @@ int main(int argc, char* argv[]) {
 				return 2;
 			}
 
-			printf("%s:%u Dequeued buffer %d\n", __FILE__, __LINE__, buf.index);
+			#ifdef DEBUG
+				printf("%s:%u Dequeued buffer %d\n", __FILE__, __LINE__, buf.index);
+			#endif
 
-			/* ToDo: Process image ... */
+			/* Process image ... */
 			{
 				lpRawImg = malloc(sizeof(struct imgRawImage));
 				if(lpRawImg == NULL) {
@@ -789,7 +811,9 @@ int main(int argc, char* argv[]) {
 	        	if(asprintf(&lpFilename, "%s-raw.jpg", argv[2]) < 0) {
 					printf("%s:%u Out of memory, skipping frame\n", __FILE__, __LINE__);
 	        	} else {
-	  				printf("%s:%u Writing %s\n", __FILE__, __LINE__, lpFilename);
+					#ifdef DEBUG
+	  					printf("%s:%u Writing %s\n", __FILE__, __LINE__, lpFilename);
+					#endif
 					greyscale(lpRawImg);
 					createHistograms(lpRawImg, argv[2], NULL, NULL, NULL);
 		  			storeJpegImageFile(lpRawImg, lpFilename);
