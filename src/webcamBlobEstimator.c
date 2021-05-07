@@ -480,8 +480,10 @@ int main(int argc, char* argv[]) {
 	/*
 		Query cropping capabilities and set cropping rectangle
 	*/
-	int defaultWidth 	= 640;
-	int defaultHeight	= 480;
+	/* int defaultWidth 	= 640;
+	int defaultHeight	= 480; */
+	int defaultWidth 	= 1920;
+	int defaultHeight	= 1080;
 	for(;;) {
 		struct v4l2_cropcap cropcap;
 
