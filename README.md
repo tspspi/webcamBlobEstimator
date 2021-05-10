@@ -20,6 +20,6 @@ by simply:
 All data is stored into specific files when doing multiple measurements
 using the signal generator.
 
-![Example capture](./doc/testoutput/test04-raw.jpg)
+![Example capture](./doc/testoutput/measurement43000000-raw.jpg)
 
-![Example cluster](./doc/testoutput/test04-cluster.jpg)
+![Example cluster](./doc/testoutput/measurement43000000-cluster.jpg)
