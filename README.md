@@ -2,7 +2,16 @@
 
 This is a really simple blob detector that locates a single
 bright cluster on an webcam image. It has been used during electron
-beam diagnosis.
+beam diagnosis. This application might not be useful for anything
+else than the task it has been designed (or better call it hacked) for.
+This application is based on one of my [blog posts about webcam
+access from C](https://www.tspi.at/2021/02/06/webcamcapture.html)
+
+Depends on:
+
+* [libjpeg](https://github.com/mozilla/mozjpeg)
+* In case Siglent SSG3021X should be controlled for frequency
+  sweep [rawsockscpitools](https://github.com/tspspi/rawsockscpitools)
 
 It works on a really simple principle (no DoG pyramids, scale spaces, etc.)
 by simply:
