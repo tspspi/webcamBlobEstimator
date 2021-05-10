@@ -11,10 +11,10 @@ access from C](https://www.tspi.at/2021/02/06/webcamcapture.html)
 
 ## External dependencies
 
-| Package                                                        | License                        | Comment                                                           |
-| -------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------- |
-| [libjpeg](https://github.com/mozilla/mozjpeg)                  | IJG license - BSD like license |                                                                   |
-| [rawsockscpitools](https://github.com/tspspi/rawsockscpitools) | 4 clause BSD license           | In case Siglent SSG3021X should be controlled for frequency sweep |
+| Package                                                        | License                        | Comment                                                                                |
+| -------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| [libjpeg](https://github.com/mozilla/mozjpeg)                  | IJG license - BSD like license |                                                                                        |
+| [rawsockscpitools](https://github.com/tspspi/rawsockscpitools) | 4 clause BSD license           | In case Siglent SSG3021X should be controlled for frequency sweep (SSG_ENABLE defined) |
 
 ## Description
 
