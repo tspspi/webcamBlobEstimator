@@ -11,6 +11,12 @@
 
 #include <linux/videodev2.h>
 
+#ifdef SSG_ENABLE
+	#include "labtypes.h"
+	#include "siglent_ssg3021x.h"
+#endif
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +42,7 @@
 #endif
 
 static void printUsage(char* argv[]) {
-	printf("Usage: %s CAPDEV TARGETFILE\n", argv[0]);
+	printf("Usage: %s CAPDEV TARGETFILE [FRQSTART FRQEND FRQSTEP SSGPOWER SSGIP]\n", argv[0]);
 	printf("\n");
 	printf("Captures into a specified failename. Also runs blob detection and exports / prints blob information\n");
 	printf("\n");
@@ -97,7 +103,12 @@ static void greyscale(
 	}
 }
 
-static int createHistograms(
+#ifdef SSG_ENABLE
+	static int createHistograms(
+		unsigned long int frq,
+#else
+	static int createHistograms(
+#endif
 	struct imgRawImage* lpImage,
 	char* lpFilenamePrefix,
 	struct histogramBuffer** lpHistXOut,
@@ -156,7 +167,11 @@ static int createHistograms(
 	*/
 	{
 		char* lpFilename = NULL;
-		if(asprintf(&lpFilename, "%s-histrawx.dat", lpFilenamePrefix) < 0) {
+		#ifndef SSG_ENABLE
+			if(asprintf(&lpFilename, "%s-histrawx.dat", lpFilenamePrefix) < 0) {
+		#else
+			if(asprintf(&lpFilename, "%s%lu-histrawx.dat", lpFilenamePrefix, frq) < 0) {
+		#endif
 			free(lpNewHistX);
 			free(lpNewHistY);
 			return 1;
@@ -176,7 +191,11 @@ static int createHistograms(
 	}
 	{
 		char* lpFilename = NULL;
-		if(asprintf(&lpFilename, "%s-histrawy.dat", lpFilenamePrefix) < 0) {
+		#ifndef SSG_ENABLE
+			if(asprintf(&lpFilename, "%s-histrawy.dat", lpFilenamePrefix) < 0) {
+		#else
+			if(asprintf(&lpFilename, "%s%lu-histrawy.dat", lpFilenamePrefix, frq) < 0) {
+		#endif
 			free(lpNewHistX);
 			free(lpNewHistY);
 			return 1;
@@ -316,7 +335,7 @@ static int createHistograms(
 								signed long int curX = (signed long int)x + dx;
 								signed long int curY = (signed long int)y + dy;
 
-								if((lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents] > 0.3*dMaxPixelValueInCluster) && (lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+2] != 255)) {
+								if((lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents] > 0.5*dMaxPixelValueInCluster) && (lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+2] != 255)) {
 									lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+2] = 255;
 									if(peakXMinReal > curX) { peakXMinReal = curX; }
 									if(peakXMaxReal < curX) { peakXMaxReal = curX; }
@@ -325,8 +344,6 @@ static int createHistograms(
 									if(peakYMaxReal < curY) { peakYMaxReal = curY; }
 
 									clusterPixelArea = clusterPixelArea + 1;
-lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+0] = 0;
-lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+1] = 0;
 									done = 0;
 								}
 							}
@@ -345,12 +362,21 @@ lpImage->lpData[(curX + curY * lpImage->width)*lpImage->numComponents+1] = 0;
 		for(x = peakXMin; x <= peakXMax; x=x+1) {
 			for(y = peakYMin; y <= peakYMax; y=y+1) {
 				if(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+2] == 255) {
-					dAreaSum = dAreaSum + ((double)lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents]); /* Summing in second component to avoid any annotations that are done in first ... */
+					dAreaSum = dAreaSum + ((double)(lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents]));
+/* Mark cluster fully blue */
+lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+0] = 0;
+lpImage->lpData[(x + y * lpImage->width)*lpImage->numComponents+1] = 0;
+
 				}
 			}
 		}
 
 		printf("# Estimated peak\n#\tx: %lu %lu\n#\ty : %lu %lu\n#\tWidths: %lu %lu\n#\tArea sum: %lf\n#\tCluster pixel area: %lu\n%lu %lu %lu %lu %lu %lu %lf %lu\n", peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dAreaSum, clusterPixelArea, peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dAreaSum, clusterPixelArea);
+		#ifdef SSG_ENABLE
+			FILE* fHandle = fopen("peaks.dat", "a");
+			fprintf(fHandle, "%lu %lu %lu %lu %lu %lu %lu %lf %lu\n", frq, peakXMin, peakXMax, peakYMin, peakYMax, peakXMax-peakXMin, peakYMax-peakYMin, dAreaSum, clusterPixelArea);
+			fclose(fHandle);
+		#endif
 
 		/*
 			Plot estimated peak location into image (2 pixel wide red if possible)...
@@ -488,7 +514,54 @@ int main(int argc, char* argv[]) {
 	struct imgRawImage* lpRawImg;
 
 	if(argc < 3) { printUsage(argv); return 1; }
-	if(argc > 4) { printUsage(argv); return 1; }
+	if(argc > 8) { printUsage(argv); return 1; }
+	if((argc > 3) && (argc < 8)) { printUsage(argv); return 1; }
+
+	#ifdef SSG_ENABLE
+		unsigned long int frqStart;
+		unsigned long int frqEnd;
+		unsigned long int frqStep;
+		float ssgPower;
+
+		enum labError le;
+		struct siglentSSG3021x* lpSSG3021X;
+
+		if(argc > 3) {
+			/* Read out SSG configuration */
+			if(sscanf(argv[3], "%lu", &frqStart) != 1) { printUsage(argv); return 1; }
+			if(sscanf(argv[4], "%lu", &frqEnd) != 1) { printUsage(argv); return 1; }
+			if(sscanf(argv[5], "%lu", &frqStep) != 1) { printUsage(argv); return 1; }
+			if(sscanf(argv[6], "%f", &ssgPower) != 1) { printUsage(argv); return 1; }
+		}
+
+		/* Connect to SSG */
+		le = siglentSSG3021xConnect(&lpSSG3021X, argv[7]);
+		if(le != labE_Ok) {
+	        printf("Failed to connect to SSG3021X\n");
+	        return 2;
+	    }
+
+		printf("Disabling RF output\n");
+		le = lpSSG3021X->vtbl->rfOutEnable(lpSSG3021X, false);
+		if(le != labE_Ok) {
+			printf("failed\n");
+			lpSSG3021X->vtbl->disconnect(lpSSG3021X);
+			return 2;
+		}
+		printf("Setting output power\n");
+		le = lpSSG3021X->vtbl->rfSetPower(lpSSG3021X, ssgPower);
+		if(le != labE_Ok) {
+			printf("failed\n");
+			lpSSG3021X->vtbl->disconnect(lpSSG3021X);
+			return 2;
+		}
+
+		usleep(250000); /* Wait for system to settle */
+		if(frqStart != 0) {
+			le = lpSSG3021X->vtbl->rfOutEnable(lpSSG3021X, true);
+			usleep(250000); /* Wait for system to settle */
+		}
+	#endif
 
 	/*
 		Try to open the camera
@@ -649,7 +722,7 @@ int main(int argc, char* argv[]) {
 	/*
 		Setup buffers
 	*/
-	int bufferCount = 2;
+	int bufferCount = 1;
 	{
 		struct v4l2_requestbuffers rqBuffers;
 
@@ -765,7 +838,12 @@ int main(int argc, char* argv[]) {
 	/*
 		Capture specified number of frames ...
 	*/
-	for(;;) {
+	unsigned long int frq;
+	#ifdef SSG_ENABLE
+		for(frq = frqStart; frq <= frqEnd; frq = frq + frqStep) {
+	#else
+		for(;;) {
+	#endif
 		struct kevent kev;
 		struct v4l2_buffer buf;
 
@@ -873,20 +951,48 @@ int main(int argc, char* argv[]) {
 
 	        	char* lpFilename = NULL;
 				char* lpFilename2 = NULL;
-	        	if(asprintf(&lpFilename, "%s-raw.jpg", argv[2]) < 0) {
+				#ifdef SSG_ENABLE
+	        		if(asprintf(&lpFilename, "%s%lu-raw.jpg", argv[2], frq) < 0) {
+				#else
+					if(asprintf(&lpFilename, "%s-raw.jpg", argv[2]) < 0) {
+				#endif
 					printf("%s:%u Out of memory, skipping frame\n", __FILE__, __LINE__);
 	        	} else {
-					asprintf(&lpFilename2, "%s-cluster.jpg", argv[2]);
+					#ifdef SSG_ENABLE
+						asprintf(&lpFilename2, "%s%lu-cluster.jpg", argv[2], frq);
+					#else
+						asprintf(&lpFilename2, "%s-cluster.jpg", argv[2]);
+					#endif
 					#ifdef DEBUG
 	  					printf("%s:%u Writing %s\n", __FILE__, __LINE__, lpFilename);
 					#endif
 					greyscale(lpRawImg);
 					storeJpegImageFile(lpRawImg, lpFilename);
-					createHistograms(lpRawImg, argv[2], NULL, NULL, NULL);
+					storeJpegImageFile(lpRawImg, "current-raw.jpg");
+					#ifdef SSG_ENABLE
+						createHistograms(frq, lpRawImg, argv[2], NULL, NULL, NULL);
+					#else
+						createHistograms(lpRawImg, argv[2], NULL, NULL, NULL);
+					#endif
 		  			storeJpegImageFile(lpRawImg, lpFilename2);
+					storeJpegImageFile(lpRawImg, "current-cluster.jpg");
 	          		free(lpFilename);
 					free(lpFilename2);
 				}
+
+				/*
+					Setting new frequency
+				*/
+				#ifdef SSG_ENABLE
+					if(frq == 0) {
+						le = lpSSG3021X->vtbl->rfOutEnable(lpSSG3021X, true);
+					}
+					le = lpSSG3021X->vtbl->rfSetFrequency(lpSSG3021X, frq + frqStep);
+					if(le != labE_Ok) {
+						printf("Failed setting frequency\n");
+					}
+					usleep(500*1000);
+				#endif
 
 				free(lpRawImg->lpData);
 				free(lpRawImg);
@@ -900,10 +1006,14 @@ int main(int argc, char* argv[]) {
 				return 2;
 			}
 		}
-		break;
+		#ifndef SSG_ENABLE
+			break;
+		#endif
 	}
 
-
+	#ifdef SSG_ENABLE
+		le = lpSSG3021X->vtbl->rfOutEnable(lpSSG3021X, false);
+	#endif
 
 
 
