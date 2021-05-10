@@ -32,3 +32,21 @@ using the signal generator.
 ![Example capture](./doc/testoutput/measurement43000000-raw.jpg)
 
 ![Example cluster](./doc/testoutput/measurement43000000-cluster.jpg)
+
+## Building
+
+The application is simply built by using GNU make:
+
+```
+gmake
+```
+
+Note that include paths and library paths have to include ```libjpeg``` and
+if required one has to add the ```rawsockscpitools``` library to the Makefile.
+
+```
+-CCOBJ=clang -I/usr/local/include/ -Wall -ansi -std=c99 -pedantic -c
++CCOBJ=clang -I/usr/local/include/ -Wall -ansi -std=c99 -pedantic -c -DSSG_ENABLE -I/usr/home/tsp/githubRepos/rawsockscpitools/include
+-CCLINKSUFFIX=-L/usr/local/lib -ljpeg
++CCLINKSUFFIX=-L/usr/local/lib /usr/home/tsp/githubRepos/rawsockscpitools/bin/librawsockscpitools.a -ljpeg
+```
