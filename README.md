@@ -11,6 +11,11 @@ else than the task it has been designed (or better call it hacked) for.
 This application is based on one of my [blog posts about webcam
 access from C](https://www.tspi.at/2021/02/06/webcamcapture.html)
 
+## License
+
+These utilities are open source and licensed under a 4 clause
+BSD license. See [LICENSE.md](https://github.com/tspspi/webcamBlobEstimator/blob/master/LICENSE.md)
+
 ## External dependencies
 
 | Package                                                        | License                        | Comment                                                                                |
