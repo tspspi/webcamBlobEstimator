@@ -450,6 +450,111 @@ static int xioctl(int fh, int request, void* arg) {
 }
 
 /*
+	Exposure control:
+		V4L2 knows 4 exposure modes:
+
+		| Mode							  | Exposure | Aperture |
+		| ------------------------------- | -------- | -------- |
+		| V4L2_EXPOSURE_AUTO			  | Auto     | Auto     |
+		| V4L2_EXPOSURE_MANUAL			  | Manual   | Manual   |
+		| V4L2_EXPOSURE_SHUTTER_PRIORITY  | Manual   | Auto     |
+		| V4L2_EXPOSURE_APERTURE_PRIORITY | Auto     | Manual   |
+*/
+
+static int getExposureMode(int fh) {
+	struct v4l2_control ctrl;
+
+	memset(&ctrl, 0, sizeof(struct v4l2_control));
+
+	ctrl.id = V4L2_CID_EXPOSURE_AUTO;
+
+	if(xioctl(fh, VIDIOC_G_CTRL, &ctrl) == -1) {
+		perror("Failed getting current exposure mode");
+		return -1;
+	}
+
+	return ctrl.value;
+}
+static int setExposureMode(int fh, int mode) {
+	struct v4l2_control ctrl;
+
+	memset(&ctrl, 0, sizeof(struct v4l2_control));
+
+	ctrl.id = V4L2_CID_EXPOSURE_AUTO;
+	ctrl.value = mode;
+
+	if(xioctl(fh, VIDIOC_S_CTRL, &ctrl) == -1) {
+		perror("Failed getting current exposure mode");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int setExposureManual(int fh) {
+	struct v4l2_control ctrl;
+
+	memset(&ctrl, 0, sizeof(struct v4l2_control));
+
+	ctrl.id = V4L2_CID_EXPOSURE_AUTO;
+	ctrl.value = V4L2_EXPOSURE_MANUAL;
+
+	if(xioctl(fh, VIDIOC_S_CTRL, &ctrl) == -1) {
+		perror("Setting V4L2_CID_EXPOSURE_AUTO to V4L2_EXPOSURE_MANUAL");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int setExposureAuto(int fh) {
+	struct v4l2_control ctrl;
+
+	memset(&ctrl, 0, sizeof(struct v4l2_control));
+
+	ctrl.id = V4L2_CID_EXPOSURE_AUTO;
+	ctrl.value = V4L2_EXPOSURE_AUTO;
+
+	if(xioctl(fh, VIDIOC_S_CTRL, &ctrl) == -1) {
+		perror("Setting V4L2_CID_EXPOSURE_AUTO to V4L2_EXPOSURE_MANUAL");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int getExposureAbsolute(int fh) {
+	struct v4l2_control ctrl;
+
+	memset(&ctrl, 0, sizeof(struct v4l2_control));
+
+	ctrl.id = V4L2_CID_EXPOSURE_ABSOLUTE;
+	ctrl.value = ~0;
+
+	if (xioctl(fh,VIDIOC_G_CTRL,&ctrl) == -1) {
+      perror("Getting V4L2_CID_EXPOSURE_ABSOLUTE");
+	  return -1;
+	}
+
+	return ctrl.value;
+}
+
+static int setExposureAbsolute(int fh, int exposureValue) {
+	struct v4l2_control ctrl;
+
+	memset(&ctrl, 0, sizeof(struct v4l2_control));
+
+	ctrl.id = V4L2_CID_EXPOSURE_ABSOLUTE;
+	ctrl.value = exposureValue;
+
+	if(xioctl(fh, VIDIOC_S_CTRL, &ctrl) == -1) {
+		perror("Setting V4L2_CID_EXPOSURE_ABSOLUTE");
+		return -1;
+	}
+	return 0;
+}
+
+/*
   Open the device file (first check it exists, is
   a device file, etc.)
 */
